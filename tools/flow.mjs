@@ -50,6 +50,14 @@ await page.waitForFunction(() => window.__jelly.game.getSnapshot().phase === 'pl
 await sleep(120)
 await shot('go')
 check((await snap()).nickname === NAME, `nickname kept: ${NAME}`)
+const panelOnScreen = await page.evaluate(() =>
+  [...document.querySelectorAll('[class*="leva-c-"]')].some((e) => {
+    const r = e.getBoundingClientRect()
+    const s = getComputedStyle(e)
+    return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden'
+  })
+)
+check(!panelOnScreen, 'tuning panel hidden')
 
 // slice what falls, aiming at the newest whole bear each time
 async function sliceOne({ film = 0 } = {}) {
