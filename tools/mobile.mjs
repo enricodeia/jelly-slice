@@ -7,7 +7,7 @@ const page = await browser.newPage()
 await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
-await page.goto(process.env.URL || 'http://127.0.0.1:5220/', { waitUntil: 'networkidle0', timeout: 90000 })
+await page.goto((process.env.URL || 'http://127.0.0.1:5220/') + '?nointro', { waitUntil: 'networkidle0', timeout: 90000 })
 await page.waitForFunction(() => window.__jelly && window.__jelly.playing, { timeout: 60000 })
 await sleep(2500)
 await page.screenshot({ path: '/tmp/jelly-mobile-1.png' })

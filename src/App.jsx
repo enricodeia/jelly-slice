@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { PerformanceMonitor } from '@react-three/drei'
 import * as THREE from 'three'
@@ -6,8 +6,9 @@ import { LevaPanel, useCreateStore } from 'leva'
 import Experience from './scene/Experience.jsx'
 import ScoreHUD from './ui/ScoreHUD.jsx'
 import FxLayer from './ui/FxLayer.jsx'
-import Preloader from './ui/Preloader.jsx'
-import { game } from './game/game.js'
+import Intro from './ui/Intro.jsx'
+import Results from './ui/Results.jsx'
+import { game, PANEL } from './game/game.js'
 
 const LEVA_THEME = {
   colors: {
@@ -49,21 +50,20 @@ export default function App() {
   // which can win the race against a themed <Leva> and ship default colours.
   const levaStore = useCreateStore()
   const narrow = useNarrow()
-  const [resetKey, setResetKey] = useState(0)
+  const { phase } = useSyncExternalStore(game.subscribe, game.getSnapshot)
   const [ready, setReady] = useState(false) // scene built and shaders warm
-  const [playing, setPlaying] = useState(false) // logo docked: bears may fall
   // ≤1.5: at 2× the full-res transmission pass (4× MSAA, re-rendered every
   // frame) falls off a cliff; drop to 1× on machines that can't hold 60.
   const [dpr, setDpr] = useState(() => Math.min(1.5, window.devicePixelRatio || 1))
 
-  const handleReady = useCallback(() => setReady(true), [])
-  const handleStart = useCallback(() => setPlaying(true), [])
-
-  // score, streak and multiplier live in game.js (the scene writes, the HUD reads)
-  const handleReset = useCallback(() => {
-    game.reset()
-    setResetKey((k) => k + 1)
+  const handleReady = useCallback(() => {
+    setReady(true)
+    game.ready()
   }, [])
+  // phase, clock, score, streak and multiplier live in game.js (the scene
+  // writes, the DOM reads); restart = a fresh countdown
+  const handleRestart = useCallback(() => game.start(), [])
+  const inRound = phase === 'countdown' || phase === 'playing' || phase === 'over'
 
   return (
     <>
@@ -81,12 +81,20 @@ export default function App() {
           onDecline={() => setDpr(1)}
           onIncline={() => setDpr(Math.min(1.5, window.devicePixelRatio || 1))}
         />
-        <Experience key={resetKey} onReady={handleReady} playing={playing} levaStore={levaStore} />
+        <Experience onReady={handleReady} levaStore={levaStore} />
       </Canvas>
       <FxLayer />
-      <ScoreHUD onReset={handleReset} visible={playing} />
-      <Preloader ready={ready} onStart={handleStart} />
-      <LevaPanel store={levaStore} collapsed hidden={!playing || narrow} titleBar={{ title: 'Jelly Slice' }} theme={LEVA_THEME} />
+      <ScoreHUD onReset={handleRestart} visible={inRound} />
+      <Intro ready={ready} />
+      <Results />
+      {/* the tuning panel only with ?panel (a tuned round is never ranked) */}
+      <LevaPanel
+        store={levaStore}
+        collapsed
+        hidden={!PANEL || narrow || !inRound}
+        titleBar={{ title: 'Jelly Slice', position: { x: 0, y: 96 } }}
+        theme={LEVA_THEME}
+      />
     </>
   )
 }

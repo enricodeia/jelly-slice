@@ -7,7 +7,7 @@ await page.setViewport({ width: 1400, height: 900, deviceScaleFactor: 2 })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
-await page.goto(process.env.URL || 'http://127.0.0.1:5220/', { waitUntil: 'networkidle0' })
+await page.goto((process.env.URL || 'http://127.0.0.1:5220/') + '?nointro', { waitUntil: 'networkidle0' })
 await new Promise((r) => setTimeout(r, Number(process.env.WAIT || 4500)))
 if (process.env.CUT) {
   await page.mouse.move(250, 700)

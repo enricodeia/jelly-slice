@@ -91,6 +91,35 @@ function tierCallout(root, e) {
   )
 }
 
+// 3 · 2 · 1 · Slice!, and Time!: one big word at a time, landing like a gummy
+function bigWord(root, text, cls, hold) {
+  for (const old of root.querySelectorAll('.fx-word')) old.remove()
+  const word = el('div', `fx-word ${cls}`)
+  const b = el('b', null, text)
+  word.append(b)
+  root.append(word)
+  const total = hold + 260
+  word.animate(
+    [
+      { opacity: 0, transform: 'translate(-50%, -50%) translateY(18px)' },
+      { opacity: 1, transform: 'translate(-50%, -50%) translateY(0)', offset: 120 / total },
+      { opacity: 1, transform: 'translate(-50%, -50%) translateY(-4px)', offset: hold / total },
+      { opacity: 0, transform: 'translate(-50%, -50%) translateY(-26px)' },
+    ],
+    { duration: total, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)', fill: 'forwards' }
+  ).onfinish = () => word.remove()
+  b.animate(
+    [
+      { transform: 'scale(0.35, 0.35)' },
+      { transform: 'scale(1.24, 0.8)', offset: 0.24 },
+      { transform: 'scale(0.9, 1.1)', offset: 0.44 },
+      { transform: 'scale(1.04, 0.97)', offset: 0.64 },
+      { transform: 'scale(1, 1)' },
+    ],
+    { duration: Math.min(620, hold), easing: 'ease-out' }
+  )
+}
+
 function lost(root, e) {
   const note = el('div', 'fx-lost', `streak lost · ${formatMult(TIERS[e.was.tier].mult)}`)
   note.style.left = `${clamp(e.x, 90, innerWidth - 90)}px`
@@ -115,6 +144,12 @@ export default function FxLayer() {
       if (e.type === 'cut') points(root, e)
       else if (e.type === 'tier') tierCallout(root, e)
       else if (e.type === 'lost') lost(root, e)
+      else if (e.type === 'count') bigWord(root, String(e.n), 'is-count', 760)
+      else if (e.type === 'go') bigWord(root, 'Slice!', 'is-go', 640)
+      else if (e.type === 'time') {
+        for (const n of root.querySelectorAll('.fx-tier, .fx-points')) n.remove()
+        bigWord(root, 'Time!', 'is-time', 1050)
+      }
     })
   }, [])
 

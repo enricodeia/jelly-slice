@@ -18,8 +18,9 @@ import { ThicknessPass } from '../render/passes.js'
 import { createBackdrop } from '../render/studio.js'
 import { Crumbs } from '../fx/Crumbs.js'
 import { Glints } from '../fx/Glints.js'
+import { ScreenFx } from '../fx/ScreenFx.js'
 import { sound } from '../fx/sound.js'
-import { game, TIERS } from '../game/game.js'
+import { game, TIERS, PRACTICE, ROUND } from '../game/game.js'
 import { useSwipeTrail } from './useSwipeTrail.js'
 import BladeTrail from './BladeTrail.jsx'
 
@@ -36,6 +37,17 @@ const HEAT = [0, 0.05, 0.08, 0.11, 0.15] // how much each tier warms the paper
 const HEAT_COLORS = TIERS.map((t) => new THREE.Color('#ffffff').lerp(new THREE.Color(t.color), 0.4))
 // ?nospawn: no automatic drops — for staged reviews driven by tools/*.mjs
 const NO_SPAWN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nospawn')
+const FRENZY = 10 // the last seconds of a round: bears rain
+
+// how often bears drop (s) and how often in pairs, by the phase and the clock
+function dropPlan(phase, base) {
+  if (phase === 'menu') return { every: 1.5, pairs: 0 } // drifting behind the menu
+  if (PRACTICE) return { every: base, pairs: 0.35 }
+  const left = game.clock.left
+  if (left <= FRENZY) return { every: 0.42, pairs: 0.55 }
+  const p = Math.min(1, Math.max(0, 1 - (left - FRENZY) / Math.max(1, ROUND - FRENZY)))
+  return { every: 0.95 - 0.43 * p, pairs: 0.22 + 0.25 * p } // ramps up over the round
+}
 
 // scratch
 const _v = new THREE.Vector3()
@@ -81,13 +93,13 @@ function meanVelocity(b) {
   return [x / b.n, y / b.n, z / b.n]
 }
 
-export default function Experience({ onReady, playing, levaStore }) {
-  const { gl, camera, scene } = useThree()
+export default function Experience({ onReady, levaStore }) {
+  const { gl, camera, scene, size } = useThree()
   const groupRef = useRef()
   const { trailRef, strokeIdRef } = useSwipeTrail()
-  const state = useRef({ spawnTimer: 0.15, lastSwipeT: 0, swishStroke: -1, hitstop: 0, timeScale: 1, shake: 0 })
-  const playingRef = useRef(playing)
-  playingRef.current = playing
+  const state = useRef({ spawnTimer: 0.15, lastSwipeT: 0, swishStroke: -1, hitstop: 0, timeScale: 1, shake: 0, preSpawned: false })
+  const sizeRef = useRef(size)
+  sizeRef.current = size
 
   const c = useControls(
     'Jelly Slice',
@@ -115,6 +127,7 @@ export default function Experience({ onReady, playing, levaStore }) {
         carry: { value: 1, min: 0, max: 3, step: 0.05, label: 'carry' },
       }),
       Juice: folder({
+        lens: { value: true, label: 'screen jelly' },
         crumbs: { value: 1, min: 0, max: 2.5, step: 0.05 },
         glint: { value: true },
         hitstop: { value: true, label: 'hit-stop' },
@@ -186,6 +199,7 @@ export default function Experience({ onReady, playing, levaStore }) {
       bearGeometry: createBodyGeometry(model.render, model.lattice),
       crumbs: new Crumbs(),
       glints: new Glints(),
+      screen: new ScreenFx(),
       camBase: new THREE.Vector3(),
       meshes: [],
       queue: [],
@@ -246,13 +260,39 @@ export default function Experience({ onReady, playing, levaStore }) {
   }, [ctx, gl, scene, camera])
 
   // audio: built now, under the preloader (it blocks); it may only start
-  // inside a gesture, so the first press on the canvas resumes it
+  // inside a gesture, so any press or key (the menu's Play, a swipe) resumes it
   useEffect(() => {
     sound.prepare()
-    const el = gl.domElement
-    el.addEventListener('pointerdown', sound.unlock)
-    return () => el.removeEventListener('pointerdown', sound.unlock)
-  }, [gl])
+    window.addEventListener('pointerdown', sound.unlock, true)
+    window.addEventListener('keydown', sound.unlock, true)
+    return () => {
+      window.removeEventListener('pointerdown', sound.unlock, true)
+      window.removeEventListener('keydown', sound.unlock, true)
+    }
+  }, [])
+
+  // the round's big moments, on the screen itself and in the ears
+  useEffect(
+    () =>
+      game.onEvent((e) => {
+        const { width, height } = sizeRef.current
+        if (e.type === 'count') {
+          if (e.n === 3) state.current.preSpawned = false // a new countdown
+          sound.count(e.n)
+        } else if (e.type === 'go') {
+          ctx.screen.ring(width / 2, height * 0.42, Math.max(width, height) * 0.6, 7)
+          sound.go()
+        } else if (e.type === 'tick') {
+          ctx.screen.pulse(e.s <= 3 ? 1 : 0.55)
+          sound.tick(e.s)
+        } else if (e.type === 'time') {
+          ctx.screen.ring(width / 2, height * 0.45, Math.max(width, height), 13)
+          sound.timeUp()
+          if (e.newBest) sound.newBest()
+        }
+      }),
+    [ctx]
+  )
 
   // handle for tools/*.mjs (puppeteer): world, passes, renderer, staged spawns
   useEffect(() => {
@@ -265,7 +305,7 @@ export default function Experience({ onReady, playing, levaStore }) {
       state: state.current,
       spawn: (opts) => !!spawnBear(opts),
       get playing() {
-        return playingRef.current
+        return game.getSnapshot().phase === 'playing'
       },
     }
     return () => {
@@ -288,6 +328,7 @@ export default function Experience({ onReady, playing, levaStore }) {
       ctx.backdrop.material.dispose()
       ctx.crumbs.dispose()
       ctx.glints.dispose()
+      ctx.screen.dispose()
     }
   }, [ctx])
 
@@ -474,15 +515,26 @@ export default function Experience({ onReady, playing, levaStore }) {
     const k = 1 - Math.exp(-job.speed / FAST)
     const res = game.cut({ whole })
 
-    // the points rise from just above the body, not over the candy
+    // where it happened on screen (CSS px), and the blade's screen direction
     const tanHalf = Math.tan((camera.fov * Math.PI) / 360)
     _v.set(anchor[0], anchor[1], anchor[2])
     const rPx = (span / (_v.distanceTo(camera.position) * tanHalf)) * (size.height / 2)
     _v.project(camera)
     const x = (_v.x * 0.5 + 0.5) * size.width
-    const y = (-_v.y * 0.5 + 0.5) * size.height - Math.min(rPx * 0.75, 90)
+    const ay = (-_v.y * 0.5 + 0.5) * size.height
+    _w0.set(anchor[0] + blade[0] * 0.3, anchor[1] + blade[1] * 0.3, anchor[2] + blade[2] * 0.3).project(camera)
+    const sdx = (_w0.x - _v.x) * size.width, sdy = -(_w0.y - _v.y) * size.height
+
+    // the points rise from just above the body, not over the candy
+    const y = ay - Math.min(rPx * 0.75, 90)
     game.emit({ type: 'cut', x, y, points: res.points, mult: res.mult, tier: res.tier, whole })
     if (res.tierUp) game.emit({ type: 'tier', tier: res.tier, mult: res.mult, streak: res.streak })
+
+    // the frame itself splits along the cut and snaps back; a jelly shockwave rings out
+    if (c.lens) {
+      ctx.screen.slice(x, ay, sdx, sdy, Math.max(40, rPx * 1.3), whole ? 8 + 9 * k + 2 * res.tier : 4)
+      ctx.screen.ring(x, ay, Math.max(140, rPx * (res.tierUp ? 7 : 3.4)), res.tierUp ? 11 : whole ? 4 + 1.6 * res.tier : 2)
+    }
 
     sound.slice({ streak: res.streak, k, whole })
     if (res.tierUp) sound.tierUp(res.tier)
@@ -564,33 +616,50 @@ export default function Experience({ onReady, playing, levaStore }) {
     ctx.look.uThicknessScale.value = c.depth
     ctx.look.uReliefStrength.value = c.relief
 
-    if (playingRef.current && !NO_SPAWN) {
-      s.spawnTimer -= dt
-      if (s.spawnTimer <= 0) {
-        // now and then a pair, far enough apart to slice both in one stroke
-        const R = spawnHalfWidth()
-        const x = (Math.random() * 2 - 1) * R
-        spawnBear({ x })
-        if (R > 1.6 && Math.random() < 0.35) {
-          const gap = Math.min(2.4 + Math.random() * 1.6, 2 * R)
-          const x2 = x > 0 ? x - gap : x + gap
-          spawnBear({ x: Math.max(-R, Math.min(R, x2)), y: SPAWN_Y + 0.8 })
-        }
-        s.spawnTimer = c.interval * (0.75 + Math.random() * 0.5)
+    // the round's clocks (wall time; a long stall or a hidden tab doesn't eat the round)
+    game.update(Math.min(delta, 0.25))
+    const phase = game.getSnapshot().phase
+    const live = phase === 'playing'
+
+    const drop = (pairs) => {
+      // now and then a pair, far enough apart to slice both in one stroke
+      const R = spawnHalfWidth()
+      const x = (Math.random() * 2 - 1) * R
+      spawnBear({ x })
+      if (R > 1.6 && Math.random() < pairs) {
+        const gap = Math.min(2.4 + Math.random() * 1.6, 2 * R)
+        const x2 = x > 0 ? x - gap : x + gap
+        spawnBear({ x: Math.max(-R, Math.min(R, x2)), y: SPAWN_Y + 0.8 })
       }
     }
+    if (!NO_SPAWN && (live || phase === 'menu')) {
+      s.spawnTimer -= dt
+      if (s.spawnTimer <= 0) {
+        const plan = dropPlan(phase, c.interval)
+        drop(plan.pairs)
+        s.spawnTimer = plan.every * (0.75 + Math.random() * 0.5)
+      }
+    } else if (!NO_SPAWN && phase === 'countdown' && !s.preSpawned && game.clock.count < 0.8) {
+      // the first bears are already falling in as the countdown says go
+      s.preSpawned = true
+      drop(0.6)
+      s.spawnTimer = 0.9
+    }
 
-    // every segment the pointer drew since last frame, not only the newest
+    // every segment the pointer drew since last frame, not only the newest;
+    // the knife only cuts while the round is on
     const trail = trailRef.current
     const tanHalf = Math.tan((camera.fov * Math.PI) / 360)
-    for (let i = 1; i < trail.length; i++) {
-      if (trail[i].t <= s.lastSwipeT) continue
-      const sp = strokeSpeed(trail, i, camera.aspect)
-      queueHits(trail[i - 1], trail[i], sp)
-      const worldSpeed = sp * ctx.camBase.z * tanHalf
-      if (worldSpeed > 14 && s.swishStroke !== strokeIdRef.current) {
-        s.swishStroke = strokeIdRef.current
-        sound.swish(1 - Math.exp(-worldSpeed / 30))
+    if (live) {
+      for (let i = 1; i < trail.length; i++) {
+        if (trail[i].t <= s.lastSwipeT) continue
+        const sp = strokeSpeed(trail, i, camera.aspect)
+        queueHits(trail[i - 1], trail[i], sp)
+        const worldSpeed = sp * ctx.camBase.z * tanHalf
+        if (worldSpeed > 14 && s.swishStroke !== strokeIdRef.current) {
+          s.swishStroke = strokeIdRef.current
+          sound.swish(1 - Math.exp(-worldSpeed / 30))
+        }
       }
     }
     if (trail.length) s.lastSwipeT = trail[trail.length - 1].t
@@ -602,7 +671,7 @@ export default function Experience({ onReady, playing, levaStore }) {
     world.step(dt)
     // rolling average for tools/perf.mjs
     ctx.stats.step = ctx.stats.step * 0.95 + (performance.now() - t0) * 0.05
-    if (playingRef.current) checkEscapes(size)
+    if (live) checkEscapes(size)
     cull(world.time)
     ctx.tex.needsUpdate = true
 
@@ -617,6 +686,7 @@ export default function Experience({ onReady, playing, levaStore }) {
 
     ctx.crumbs.update(dt, prm.gravity, camera)
     ctx.glints.update(realDt * film, camera)
+    ctx.screen.update(realDt * film)
 
     // the paper warms with the multiplier
     const tier = game.getSnapshot().tier
@@ -641,6 +711,10 @@ export default function Experience({ onReady, playing, levaStore }) {
     }
     if (ctx.meshes.length) ctx.thickness.render(gl, groupRef.current, camera, ctx.meshes)
   })
+
+  // this component draws the frame (priority 1 turns off R3F's own render):
+  // the scene, then the jelly lens over it while an effect is playing
+  useFrame(() => ctx.screen.render(gl, scene, camera), 1)
 
   return (
     <>

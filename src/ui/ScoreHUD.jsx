@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowRotateLeft, faVolume, faVolumeSlash } from '@fortawesome/pro-light-svg-icons'
-import { game, TIERS, formatMult } from '../game/game.js'
+import { game, TIERS, formatMult, formatClock, ROUND } from '../game/game.js'
 import { TIER_FLIGHT_MS } from './FxLayer.jsx'
 
 const fmt = new Intl.NumberFormat('en-US')
@@ -28,6 +28,7 @@ export default function ScoreHUD({ onReset, visible = true }) {
   const [hintFaded, setHintFaded] = useState(false)
   const scoreRef = useRef()
   const badgeRef = useRef()
+  const clockRef = useRef()
   const prevScore = useRef(g.score)
 
   useEffect(() => {
@@ -54,6 +55,12 @@ export default function ScoreHUD({ onReset, visible = true }) {
         }, TIER_FLIGHT_MS - 40)
         timers.add(t)
       } else if (e.type === 'lost') badge.animate(SHAKE, { duration: 420, easing: 'ease-out' })
+      else if (e.type === 'tick') {
+        clockRef.current?.animate(
+          [{ transform: 'scale(1)' }, { transform: `scale(${e.s <= 3 ? 1.22 : 1.12})`, offset: 0.25 }, { transform: 'scale(1)' }],
+          { duration: 420, easing: 'ease-out' }
+        )
+      }
     })
     return () => {
       off()
@@ -65,9 +72,20 @@ export default function ScoreHUD({ onReset, visible = true }) {
   const next = TIERS[g.tier + 1]
   const progress = next ? Math.min(1, (g.streak - tier.at) / (next.at - tier.at)) : 1
   const label = g.streak === 0 ? 'slice them in a row' : next ? `${g.streak} in a row` : `${g.streak} in a row · max`
+  const timed = g.secondsLeft != null
+  const urgent = timed && g.phase === 'playing' && g.secondsLeft <= 10
 
   return (
     <div className={`hud${visible ? ' is-on' : ''}`}>
+      {timed && (
+        <div className={`hud-clock kicker${urgent ? ' is-urgent' : ''}`}>
+          Time
+          <b ref={clockRef}>{formatClock(g.secondsLeft)}</b>
+          <span className="hud-clock-track">
+            <i style={{ transform: `scaleX(${Math.max(0, g.secondsLeft) / ROUND})` }} />
+          </span>
+        </div>
+      )}
       <div className="hud-top">
         <div className="hud-score kicker">
           Score
@@ -98,13 +116,11 @@ export default function ScoreHUD({ onReset, visible = true }) {
         >
           <FontAwesomeIcon icon={g.muted ? faVolumeSlash : faVolume} />
         </button>
-        <button className="hud-btn" onClick={onReset} aria-label="Reset">
+        <button className="hud-btn" onClick={onReset} aria-label="Restart the round" title="Restart the round">
           <FontAwesomeIcon icon={faArrowRotateLeft} />
         </button>
       </div>
-      <div className={`hud-hint${hintFaded ? ' faded' : ''}`}>
-        swipe across the falling gummy bears · slice them in a row to multiply
-      </div>
+      <div className={`hud-hint${hintFaded ? ' faded' : ''}`}>swipe across the falling bears to slice them</div>
     </div>
   )
 }

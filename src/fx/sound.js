@@ -146,4 +146,49 @@ export const sound = {
     tone(t, { freq: 392, to: 185, peak: 0.13, attack: 0.01, decay: 0.34 })
     tone(t + 0.05, { freq: 196, to: 110, type: 'triangle', peak: 0.06, attack: 0.01, decay: 0.3 })
   },
+
+  /** 3 · 2 · 1: a round blip, a step higher each time. */
+  count(n) {
+    if (!live()) return
+    const t = ctx.currentTime
+    const f = { 3: 523.25, 2: 587.33, 1: 659.25 }[n] || 523.25
+    tone(t, { freq: f, type: 'triangle', peak: 0.13, attack: 0.004, decay: 0.22 })
+    tone(t, { freq: f * 2, peak: 0.03, attack: 0.004, decay: 0.15 })
+  },
+
+  /** Go: a bright major chord with a wet swish under it. */
+  go() {
+    if (!live()) return
+    const t = ctx.currentTime
+    for (const [i, m] of [1, 1.25, 1.5, 2].entries()) {
+      tone(t + i * 0.012, { freq: 783.99 * m, type: 'triangle', peak: 0.08, attack: 0.004, decay: 0.55 })
+    }
+    noiseBurst(t, { from: 6000, to: 900, q: 0.8, peak: 0.07, attack: 0.01, decay: 0.25 })
+  },
+
+  /** The last seconds: a dry clock tick, sharper in the final three. */
+  tick(s) {
+    if (!live()) return
+    const t = ctx.currentTime
+    const hot = s <= 3
+    tone(t, { freq: hot ? 1760 : 1320, type: 'square', peak: hot ? 0.05 : 0.03, attack: 0.001, decay: 0.035 })
+    noiseBurst(t, { from: 3500, to: 2500, q: 4, peak: 0.04, attack: 0.001, decay: 0.03 })
+  },
+
+  /** Time up: a soft bell, then a low thud. */
+  timeUp() {
+    if (!live()) return
+    const t = ctx.currentTime
+    for (const [m, p] of [[1, 0.16], [2.76, 0.05], [5.4, 0.025]]) tone(t, { freq: 440 * m, peak: p, attack: 0.003, decay: 1.1 })
+    tone(t, { freq: 140, to: 60, peak: 0.25, attack: 0.005, decay: 0.3 })
+  },
+
+  /** A new best: a quick rising fanfare. */
+  newBest() {
+    if (!live()) return
+    const t = ctx.currentTime + 0.35
+    ;[523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => {
+      tone(t + i * 0.08, { freq: f, type: 'triangle', peak: 0.1, attack: 0.004, decay: 0.38 })
+    })
+  },
 }

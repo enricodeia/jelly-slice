@@ -5,7 +5,7 @@ const page = await browser.newPage()
 await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: Number(process.env.DPR || 1) })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
-await page.goto(process.env.URL || 'http://127.0.0.1:5220/', { waitUntil: 'networkidle0' })
+await page.goto((process.env.URL || 'http://127.0.0.1:5220/') + '?nointro', { waitUntil: 'networkidle0' })
 await page.waitForFunction(() => window.__jelly && window.__jelly.playing, { timeout: 60000 })
 await page.evaluate(() => {
   window.__frames = []

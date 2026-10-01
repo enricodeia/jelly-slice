@@ -6,7 +6,7 @@ await page.setViewport({ width: 1280, height: 800 })
 const errors = []
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.text().slice(0, 300)) })
 page.on('pageerror', (e) => errors.push('pageerror ' + e.message))
-await page.goto(process.env.URL || 'http://127.0.0.1:5220/', { waitUntil: 'networkidle0' })
+await page.goto((process.env.URL || 'http://127.0.0.1:5220/') + '?nointro', { waitUntil: 'networkidle0' })
 await new Promise((r) => setTimeout(r, 5000))
 const info = await page.evaluate(() => {
   const { ctx, gl } = window.__jelly
