@@ -279,11 +279,11 @@ if ( uDebug > 0.5 && uDebug < 1.5 ) gl_FragColor = vec4( vec3( jThick / 1.2 ), 1
 // One set of "look" uniforms shared by every body, driven by the panel.
 export function createLookUniforms() {
   return {
-    uCloudiness: { value: 0.3 },
+    uCloudiness: { value: 0.31 },
     uCloudDensity: { value: 2.2 },
-    uGlowStrength: { value: 0.35 },
-    uThicknessScale: { value: 1 },
-    uReliefStrength: { value: 1 },
+    uGlowStrength: { value: 1.75 },
+    uThicknessScale: { value: 2.5 },
+    uReliefStrength: { value: 2 },
     uDebug: { value: 0 },
   }
 }

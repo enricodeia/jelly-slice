@@ -39,14 +39,16 @@ const HEAT_COLORS = TIERS.map((t) => new THREE.Color('#ffffff').lerp(new THREE.C
 const NO_SPAWN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nospawn')
 const FRENZY = 10 // the last seconds of a round: bears rain
 
-// how often bears drop (s) and how often in pairs, by the phase and the clock
+// how often bears drop (s) and how often in pairs, by the phase and the clock:
+// a round opens at the panel's pace (`base`) and quickens to ~half of it,
+// then the last seconds rain
 function dropPlan(phase, base) {
-  if (phase === 'menu') return { every: 1.5, pairs: 0 } // drifting behind the menu
+  if (phase === 'menu') return { every: Math.max(1.5, base * 0.9), pairs: 0 } // drifting behind the menu
   if (PRACTICE) return { every: base, pairs: 0.35 }
   const left = game.clock.left
-  if (left <= FRENZY) return { every: 0.42, pairs: 0.55 }
+  if (left <= FRENZY) return { every: base * 0.45, pairs: 0.55 }
   const p = Math.min(1, Math.max(0, 1 - (left - FRENZY) / Math.max(1, ROUND - FRENZY)))
-  return { every: 0.95 - 0.43 * p, pairs: 0.22 + 0.25 * p } // ramps up over the round
+  return { every: base * (1 - 0.45 * p), pairs: 0.22 + 0.25 * p }
 }
 
 // scratch
@@ -104,21 +106,22 @@ export default function Experience({ onReady, levaStore }) {
   const c = useControls(
     'Jelly Slice',
     {
+      // defaults = Enrico's tuning of 2026-10-01
       Drop: folder({
-        interval: { value: 0.75, min: 0.25, max: 3, step: 0.05, label: 'every (s)' },
-        maxPieces: { value: 36, min: 8, max: 64, step: 1, label: 'max pieces' },
+        interval: { value: 2.25, min: 0.25, max: 3, step: 0.05, label: 'every (s)' },
+        maxPieces: { value: 33, min: 8, max: 64, step: 1, label: 'max pieces' },
       }),
       Jelly: folder({
-        firmness: { value: 0.4, min: 0, max: 1, step: 0.01 },
+        firmness: { value: 0.12, min: 0, max: 1, step: 0.01 },
         wobble: { value: 0.18, min: 0.02, max: 0.6, step: 0.01, label: 'wobble damping' },
-        jiggle: { value: 1, min: 0, max: 3, step: 0.05, label: 'fall jiggle' },
+        jiggle: { value: 1.5, min: 0, max: 3, step: 0.05, label: 'fall jiggle' },
         gravity: { value: 7, min: 2, max: 20, step: 0.1 },
       }),
       Candy: folder({
-        cloudiness: { value: 0.3, min: 0, max: 1, step: 0.01 },
-        glow: { value: 0.35, min: 0, max: 3, step: 0.05, label: 'back glow' },
-        depth: { value: 1, min: 0.3, max: 2.5, step: 0.05, label: 'colour depth' },
-        relief: { value: 1, min: 0, max: 2, step: 0.05, label: 'moulding' },
+        cloudiness: { value: 0.31, min: 0, max: 1, step: 0.01 },
+        glow: { value: 1.75, min: 0, max: 3, step: 0.05, label: 'back glow' },
+        depth: { value: 2.5, min: 0.3, max: 2.5, step: 0.05, label: 'colour depth' },
+        relief: { value: 2, min: 0, max: 2, step: 0.05, label: 'moulding' },
       }),
       // the knife's action on the pieces, all scaled by the blade's real speed
       Knife: folder({
@@ -128,7 +131,7 @@ export default function Experience({ onReady, levaStore }) {
       }),
       Juice: folder({
         lens: { value: true, label: 'screen jelly' },
-        crumbs: { value: 1, min: 0, max: 2.5, step: 0.05 },
+        crumbs: { value: 2.1, min: 0, max: 2.5, step: 0.05 },
         glint: { value: true },
         hitstop: { value: true, label: 'hit-stop' },
         shake: { value: 1, min: 0, max: 3, step: 0.05 },
@@ -606,8 +609,8 @@ export default function Experience({ onReady, levaStore }) {
 
     // panel → sim + look
     const prm = world.params
-    // firmness 0.4 ≈ a gummy that wobbles ~4 Hz for half a second when struck
-    // or cut (compliance 4e-4); 1 is the old near-rigid rubber (6e-6)
+    // firmness 0.12 (the default) ≈ compliance 2.8e-3: soft, cut halves wobble
+    // ~8%; 0.4 ≈ a firm gummy (4e-4); 1 is the old near-rigid rubber (6e-6)
     prm.edgeCompliance = Math.pow(10, -2.2 - 3 * c.firmness)
     prm.damping = c.wobble
     prm.gravity = ctx.overrides.gravity ?? c.gravity
