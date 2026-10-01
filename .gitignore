@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.vercel
+
+# the photo of real Goldbears: design input only, not published (the outline
+# traced from it ships baked into src/geometry/goldbearSilhouette.js)
+tools/reference/
