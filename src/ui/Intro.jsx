@@ -13,6 +13,7 @@ import { game, cleanNickname, nicknameOk, PRACTICE } from '../game/game.js'
 import Board from './Board.jsx'
 import HowTo from './HowTo.jsx'
 import { useJelly } from './useJelly.js'
+import JellySurface from './JellySurface.jsx'
 
 const MIN_SHOW_MS = 1600 // let the entrance land, even on a fast load
 const LOGO_ASPECT = 460 / 1600
@@ -50,7 +51,7 @@ export default function Intro({ ready }) {
   const menuPose = useRef({ dy: 0, k: 1 })
   const [phase, setPhase] = useState('intro') // intro → menu → docking → docked
   const [name, setName] = useState(() => game.getSnapshot().nickname)
-  const jelly = useJelly()
+  const body = useRef()
   const playJelly = useJelly({ stiffness: 320, damping: 10, follow: false })
 
   // the entrance: a gummy drop, then a slow breath while the scene warms
@@ -138,7 +139,7 @@ export default function Intro({ ready }) {
       { duration: motion ? 560 : 1, delay: motion ? 620 : 0, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'both' }
     )
     // and lands like a gummy: a squash as it arrives, then it wobbles out
-    const land = setTimeout(() => jelly.kick(1.15), motion ? 900 : 0)
+    const land = setTimeout(() => body.current?.land(), motion ? 880 : 0)
     // a keyboard is waiting to type; a phone shouldn't throw its keyboard up unasked
     const focus = setTimeout(() => {
       if (matchMedia('(pointer: fine)').matches) inputRef.current?.focus({ preventScroll: true })
@@ -173,7 +174,7 @@ export default function Intro({ ready }) {
     inputRef.current?.blur()
     // a squeeze of the button and the card, like pressing a gummy
     playJelly.kick(-1.6)
-    jelly.kick(-0.9)
+    body.current?.squeeze()
     dock()
   }
 
@@ -269,37 +270,35 @@ export default function Intro({ ready }) {
       </div>
       {showCard && (
         <div ref={cardRef} className="menu-card" style={{ opacity: 0 }}>
-          <div ref={jelly.ref} className="card-jelly">
-            <div className="card-surface">
-              <HowTo />
-              <p className="kicker">60-second challenge</p>
-              <h1 className="menu-title">Slice the Goldbears</h1>
-              <p className="menu-copy">
-                Swipe to slice them.
-                <br />
-                Slice them in a row for up to ×8.
-              </p>
-              <form className="menu-form" onSubmit={play}>
-                <input
-                  ref={inputRef}
-                  className="pill-input"
-                  value={name}
-                  onChange={(e) => setName(e.target.value.slice(0, 16))}
-                  maxLength={16}
-                  autoComplete="nickname"
-                  autoCapitalize="words"
-                  spellCheck={false}
-                  enterKeyHint="go"
-                  placeholder="Your nickname"
-                  aria-label="Your nickname"
-                />
-                <button ref={playJelly.ref} className="btn-play" type="submit" disabled={!nicknameOk(name)}>
-                  Play
-                </button>
-              </form>
-              <Board limit={3} title="Score to beat" />
-            </div>
-          </div>
+          <JellySurface ref={body} className="card-surface">
+            <HowTo />
+            <p className="kicker">60-second challenge</p>
+            <h1 className="menu-title">Slice the Goldbears</h1>
+            <p className="menu-copy">
+              Swipe to slice them.
+              <br />
+              Slice them in a row for up to ×8.
+            </p>
+            <form className="menu-form" onSubmit={play}>
+              <input
+                ref={inputRef}
+                className="pill-input"
+                value={name}
+                onChange={(e) => setName(e.target.value.slice(0, 16))}
+                maxLength={16}
+                autoComplete="nickname"
+                autoCapitalize="words"
+                spellCheck={false}
+                enterKeyHint="go"
+                placeholder="Your nickname"
+                aria-label="Your nickname"
+              />
+              <button ref={playJelly.ref} className="btn-play" type="submit" disabled={!nicknameOk(name)}>
+                Play
+              </button>
+            </form>
+            <Board limit={3} title="Score to beat" />
+          </JellySurface>
         </div>
       )}
     </>
