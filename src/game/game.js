@@ -12,12 +12,14 @@
 
 import { leaderboard } from './leaderboard.js'
 
+// color: the candy fill (badges, callouts, the paper's warmth); ink: a deeper
+// shade that reads on paper (points, the blade trail)
 export const TIERS = [
-  { at: 0, mult: 1, color: '#6f6a5d' },
-  { at: 3, mult: 1.5, color: '#c0601c' }, // orange
-  { at: 6, mult: 2, color: '#b01e2c' }, // strawberry
-  { at: 10, mult: 4, color: '#7e1d58' }, // raspberry
-  { at: 15, mult: 8, color: '#a8770c' }, // gold
+  { at: 0, mult: 1, color: '#7d6a5c', ink: '#2b1a12' },
+  { at: 3, mult: 1.5, color: '#f28c1a', ink: '#d96a00' }, // orange
+  { at: 6, mult: 2, color: '#e10a14', ink: '#c4000f' }, // HARIBO red
+  { at: 10, mult: 4, color: '#c2185b', ink: '#a3124a' }, // raspberry
+  { at: 15, mult: 8, color: '#ffc61a', ink: '#c98c00' }, // Goldbear gold
 ]
 
 export const ROUND_SECONDS = 60

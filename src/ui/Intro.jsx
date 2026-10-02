@@ -11,6 +11,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { game, cleanNickname, nicknameOk, PRACTICE } from '../game/game.js'
 import Board from './Board.jsx'
+import HowTo from './HowTo.jsx'
+import { useJelly } from './useJelly.js'
 
 const MIN_SHOW_MS = 1600 // let the entrance land, even on a fast load
 const LOGO_ASPECT = 460 / 1600
@@ -18,7 +20,7 @@ const reducedMotion = () => PRACTICE || (typeof matchMedia !== 'undefined' && ma
 
 // the logo's widths: at rest (its CSS), over the menu, docked
 const baseWidth = () => Math.min(window.innerWidth * 0.64, 700)
-const menuWidth = () => Math.min(360, window.innerWidth * 0.6)
+const menuWidth = () => Math.min(300, window.innerWidth * 0.58)
 const dockWidth = () => Math.round(Math.min(210, window.innerWidth * 0.34))
 const dockTop = () => (window.innerWidth < 640 ? 16 : 22)
 
@@ -48,6 +50,8 @@ export default function Intro({ ready }) {
   const menuPose = useRef({ dy: 0, k: 1 })
   const [phase, setPhase] = useState('intro') // intro → menu → docking → docked
   const [name, setName] = useState(() => game.getSnapshot().nickname)
+  const jelly = useJelly()
+  const playJelly = useJelly({ stiffness: 320, damping: 10, follow: false })
 
   // the entrance: a gummy drop, then a slow breath while the scene warms
   useEffect(() => {
@@ -95,7 +99,10 @@ export default function Intro({ ready }) {
     const place = (animate) => {
       const L = menuLayout(card)
       card.style.top = `${L.cardTop}px`
-      card.style.maxHeight = `${L.maxHeight}px`
+      // scroll only if it can't fit: a clipped card would cut its own shadow and squash
+      const tight = card.scrollHeight > L.maxHeight + 1
+      card.style.maxHeight = tight ? `${L.maxHeight}px` : ''
+      card.style.overflowY = tight ? 'auto' : 'visible'
       const from = menuPose.current
       menuPose.current = { dy: L.dy, k: L.k }
       dockRef.current.getAnimations().forEach((a) => a.cancel())
@@ -124,20 +131,32 @@ export default function Intro({ ready }) {
     veilRef.current.animate([{ opacity: 1 }, { opacity: 0.8 }], { duration: 900, easing: 'ease-in-out', fill: 'forwards' })
     card.animate(
       [
-        { opacity: 0, transform: 'translate(-50%, 26px)' },
+        { opacity: 0, transform: 'translate(-50%, 34px)' },
         { opacity: 1, transform: 'translate(-50%, 0)' },
       ],
       // in once the logo has mostly lifted clear of it
-      { duration: motion ? 700 : 1, delay: motion ? 620 : 0, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)', fill: 'both' }
+      { duration: motion ? 560 : 1, delay: motion ? 620 : 0, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'both' }
     )
+    // and lands like a gummy: a squash as it arrives, then it wobbles out
+    const land = setTimeout(() => jelly.kick(1.15), motion ? 900 : 0)
     // a keyboard is waiting to type; a phone shouldn't throw its keyboard up unasked
     const focus = setTimeout(() => {
       if (matchMedia('(pointer: fine)').matches) inputRef.current?.focus({ preventScroll: true })
     }, 900)
     const onResize = () => place(false)
     window.addEventListener('resize', onResize)
+    // the card's height changes when the web fonts arrive: keep the pair centred
+    let lastH = card.offsetHeight
+    const ro = new ResizeObserver(() => {
+      if (Math.abs(card.offsetHeight - lastH) < 1) return
+      lastH = card.offsetHeight
+      place(false)
+    })
+    ro.observe(card)
     return () => {
       clearTimeout(focus)
+      clearTimeout(land)
+      ro.disconnect()
       window.removeEventListener('resize', onResize)
     }
   }, [phase])
@@ -152,6 +171,9 @@ export default function Intro({ ready }) {
     setName(clean)
     game.setNickname(clean)
     inputRef.current?.blur()
+    // a squeeze of the button and the card, like pressing a gummy
+    playJelly.kick(-1.6)
+    jelly.kick(-0.9)
     dock()
   }
 
@@ -247,33 +269,37 @@ export default function Intro({ ready }) {
       </div>
       {showCard && (
         <div ref={cardRef} className="menu-card" style={{ opacity: 0 }}>
-          <p className="kicker">60-second challenge</p>
-          <h1 className="menu-title">Slice the Goldbears</h1>
-          <p className="menu-copy">
-            Swipe through the falling bears. Slice them one after another to multiply every point, up to ×8. Let one fall and
-            the streak breaks.
-          </p>
-          <form className="menu-form" onSubmit={play}>
-            <label className="menu-field">
-              <span className="kicker">Your nickname</span>
-              <input
-                ref={inputRef}
-                value={name}
-                onChange={(e) => setName(e.target.value.slice(0, 16))}
-                maxLength={16}
-                autoComplete="nickname"
-                autoCapitalize="words"
-                spellCheck={false}
-                enterKeyHint="go"
-                placeholder="2 to 16 letters"
-                aria-label="Your nickname"
-              />
-            </label>
-            <button className="menu-play" type="submit" disabled={!nicknameOk(name)}>
-              Play
-            </button>
-          </form>
-          <Board limit={5} title="Score to beat" />
+          <div ref={jelly.ref} className="card-jelly">
+            <div className="card-surface">
+              <HowTo />
+              <p className="kicker">60-second challenge</p>
+              <h1 className="menu-title">Slice the Goldbears</h1>
+              <p className="menu-copy">
+                Swipe to slice them.
+                <br />
+                Slice them in a row for up to ×8.
+              </p>
+              <form className="menu-form" onSubmit={play}>
+                <input
+                  ref={inputRef}
+                  className="pill-input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value.slice(0, 16))}
+                  maxLength={16}
+                  autoComplete="nickname"
+                  autoCapitalize="words"
+                  spellCheck={false}
+                  enterKeyHint="go"
+                  placeholder="Your nickname"
+                  aria-label="Your nickname"
+                />
+                <button ref={playJelly.ref} className="btn-play" type="submit" disabled={!nicknameOk(name)}>
+                  Play
+                </button>
+              </form>
+              <Board limit={3} title="Score to beat" />
+            </div>
+          </div>
         </div>
       )}
     </>

@@ -21,7 +21,7 @@ await page.evaluate(() => {
   }
   requestAnimationFrame(tick)
 })
-await page.click('.menu-play')
+await page.click('.btn-play')
 await sleep(1600)
 const rects = await page.evaluate(() => window.__rects)
 let jy = 0, jw = 0

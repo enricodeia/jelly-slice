@@ -50,5 +50,7 @@ submitted.
 Puppeteer scripts in `tools/` drive a local Chrome against the dev server:
 `flow.mjs` (the whole experience, `ROUND=60` for a ranked round,
 `VIEW=phone`), `streak.mjs` (multiplier rules), `cutfilm.mjs` (one cut in slow
-motion), `perf.mjs`, `repro.mjs`, `mobile.mjs`, `docktrack.mjs`, and
-`bench-*.mjs` for the solver in Node.
+motion), `howto.mjs` (the menu's how-to loop), `perf.mjs`, `repro.mjs`,
+`mobile.mjs`, `docktrack.mjs`, and `bench-*.mjs` for the solver in Node.
+`build-sprite.mjs` re-bakes `public/goldbear-sprite.png` (the menu's 2D bear)
+from the 3D bear's shape.

@@ -91,7 +91,7 @@ export default function ScoreHUD({ onReset, visible = true }) {
           Score
           <b ref={scoreRef}>{fmt.format(g.score)}</b>
         </div>
-        <div className={`hud-mult tier-${g.tier}`} style={{ '--tier': tier.color }}>
+        <div className={`hud-mult tier-${g.tier}`} style={{ '--tier': tier.color, '--tier-ink': tier.ink }}>
           <span ref={badgeRef} className="hud-mult-badge">
             {formatMult(tier.mult)}
           </span>

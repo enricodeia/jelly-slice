@@ -13,7 +13,7 @@ const PLAY_Z = 0
 const TRAIL_MS = 170
 
 // the ink takes the multiplier tier's colour, and the stroke gets bolder
-const TIER_COLORS = TIERS.map((t, i) => new THREE.Color(i === 0 ? '#211d16' : t.color))
+const TIER_COLORS = TIERS.map((t) => new THREE.Color(t.ink))
 
 export default function BladeTrail({ trailRef, color = '#fff6ea' }) {
   const meshRef = useRef()

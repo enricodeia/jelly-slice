@@ -20,7 +20,7 @@ function el(tag, className, text) {
 
 function points(root, e) {
   const pop = el('div', `fx-points${e.whole ? '' : ' is-piece'}`)
-  if (e.tier > 0) pop.style.setProperty('--tier', TIERS[e.tier].color) // ×1 stays ink
+  if (e.tier > 0) pop.style.setProperty('--tier', TIERS[e.tier].ink) // ×1 stays HARIBO red
   pop.append(el('b', null, `+${e.points}`))
   if (e.mult > 1) pop.append(el('small', null, formatMult(e.mult)))
   pop.style.left = `${clamp(e.x, 44, innerWidth - 44)}px`
@@ -50,6 +50,7 @@ function tierCallout(root, e) {
   for (const old of root.querySelectorAll('.fx-tier')) old.remove()
   const call = el('div', `fx-tier tier-${e.tier}`)
   call.style.setProperty('--tier', TIERS[e.tier].color)
+  call.style.setProperty('--tier-ink', TIERS[e.tier].ink)
   const big = el('b', null, formatMult(e.mult))
   const kicker = el('span', 'fx-tier-kicker', `${e.streak} in a row`)
   call.append(kicker, big)
